@@ -465,13 +465,16 @@ function StampRallyApp() {
     const visitors = storage.get(STORAGE_KEYS.VISITORS, {});
     if (!visitors[userId]) visitors[userId] = { stamps: [], startedAt: Date.now() };
     visitors[userId].stamps = newStamps;
+    if (newStamps.length === booths.length) {
+      visitors[userId].completedAt = Date.now();
+    }
     storage.set(STORAGE_KEYS.VISITORS, visitors);
 
     showToast(`「${booth.name}」のスタンプをゲット！`, "success");
 
     // スタンプカードへ遷移してアニメーション表示
     setNewlyStamped(boothId);
-    setPage("list");
+    setPage("home");
     setTimeout(() => setNewlyStamped(null), 1200);
 
     if (newStamps.length === booths.length && !userPrize) {
@@ -855,22 +858,6 @@ function ScanPage({ booths, stamps, onScan, onBack }) {
             </div>
           </div>
           <p style={styles.scanHint}>ブースのQRコードをカメラに向けてください</p>
-          <div style={styles.manualSection}>
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textAlign: "center", marginBottom: 8 }}>
-              ─ テスト用手動入力 ─
-            </p>
-            <div style={styles.manualRow}>
-              <select value={manualId} onChange={e => setManualId(e.target.value)} style={styles.manualSelect}>
-                <option value="">ブースを選択...</option>
-                {booths.map(b => (
-                  <option key={b.id} value={b.id} disabled={stamps.includes(b.id)}>
-                    {b.icon} {b.name}{stamps.includes(b.id) ? " ✓" : ""}
-                  </option>
-                ))}
-              </select>
-              <button style={styles.manualBtn} onClick={handleManual}>取得</button>
-            </div>
-          </div>
         </>
       )}
     </div>
@@ -1432,53 +1419,228 @@ function AdminPage({ booths, setBooths, prizes, setPrizes, onBack, onStaff }) {
 
       {/* ── VISITORS TAB ── */}
       {tab === "visitors" && (
-        <div style={styles.tabContent}>
-          <div style={styles.statsRow}>
-            <div style={styles.statBox}>
-              <div style={styles.statNum}>{visitorList.length}</div>
-              <div style={styles.statLabel}>参加者数</div>
-            </div>
-            <div style={styles.statBox}>
-              <div style={styles.statNum}>{visitorList.filter(([,v]) => v.stamps?.length === booths.length).length}</div>
-              <div style={styles.statLabel}>コンプリート</div>
-            </div>
-            <div style={styles.statBox}>
-              <div style={styles.statNum}>{claims.length}</div>
-              <div style={styles.statLabel}>景品受取済</div>
-            </div>
-          </div>
-
-          {visitorList.length === 0 ? (
-            <p style={{ color: "rgba(255,255,255,0.3)", textAlign: "center", marginTop: 40 }}>来場者データなし</p>
-          ) : (
-            visitorList.map(([uid, v]) => (
-              <div key={uid} style={styles.adminCard}>
-                <div style={styles.adminRow}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 4 }}>{uid}</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                      {(v.stamps || []).map(sid => {
-                        const b = booths.find(b => b.id === sid);
-                        return b ? <span key={sid} style={styles.stampChip}>{b.icon}</span> : null;
-                      })}
-                    </div>
-                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 6 }}>
-                      {v.stamps?.length || 0}/{booths.length}箇所
-                      {v.claimed && " · 景品受取済"}
-                    </div>
-                  </div>
-                  {v.stamps?.length === booths.length && (
-                    <span style={{ ...styles.stampChip, background: "#4ade80", color: "#000" }}>完了</span>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        <VisitorsTab booths={booths} visitorList={visitorList} claims={claims} />
       )}
     </div>
   );
 }
+
+// ── 来場者タブ（分離コンポーネント） ──
+function VisitorsTab({ booths, visitorList, claims }) {
+  const [list, setList] = React.useState(visitorList);
+  const [confirmAll, setConfirmAll] = React.useState(false);
+
+  // ストレージから最新を読み直す
+  React.useEffect(() => {
+    setList(Object.entries(storage.get(STORAGE_KEYS.VISITORS, {})));
+  }, []);
+
+  const completedList = list.filter(([, v]) => v.stamps?.length === booths.length);
+
+  // 個別削除
+  const deleteOne = (uid) => {
+    const visitors = storage.get(STORAGE_KEYS.VISITORS, {});
+    delete visitors[uid];
+    storage.set(STORAGE_KEYS.VISITORS, visitors);
+    setList(Object.entries(visitors));
+  };
+
+  // 全削除
+  const deleteAll = () => {
+    storage.set(STORAGE_KEYS.VISITORS, {});
+    storage.set(STORAGE_KEYS.PRIZE_CLAIMS, []);
+    setList([]);
+    setConfirmAll(false);
+  };
+
+  return (
+    <div style={styles.tabContent}>
+      {/* 統計カード */}
+      <div style={styles.statsRow}>
+        <div style={styles.statBox}>
+          <div style={styles.statNum}>{list.length}</div>
+          <div style={styles.statLabel}>参加者数</div>
+        </div>
+        <div style={styles.statBox}>
+          <div style={styles.statNum}>{completedList.length}</div>
+          <div style={styles.statLabel}>コンプリート</div>
+        </div>
+        <div style={styles.statBox}>
+          <div style={styles.statNum}>{claims.length}</div>
+          <div style={styles.statLabel}>景品受取済</div>
+        </div>
+      </div>
+
+      {/* 全削除ボタン */}
+      {list.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          {!confirmAll ? (
+            <button style={visitorStyles.btnDeleteAll} onClick={() => setConfirmAll(true)}>
+              🗑️　来場者データをすべて削除
+            </button>
+          ) : (
+            <div style={visitorStyles.confirmAllBox}>
+              <p style={visitorStyles.confirmAllText}>
+                ⚠️ 全来場者データと景品受取記録を削除します。<br />この操作は取り消せません。
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={visitorStyles.btnDeleteConfirm} onClick={deleteAll}>削除する</button>
+                <button style={visitorStyles.btnDeleteCancel} onClick={() => setConfirmAll(false)}>キャンセル</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 来場者リスト */}
+      {list.length === 0 ? (
+        <p style={{ color: "rgba(255,255,255,0.3)", textAlign: "center", marginTop: 40 }}>来場者データなし</p>
+      ) : (
+        list.map(([uid, v]) => {
+          const isComplete = v.stamps?.length === booths.length;
+          const completedAt = v.completedAt
+            ? new Date(v.completedAt).toLocaleString("ja-JP", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" })
+            : null;
+          const startedAt = v.startedAt
+            ? new Date(v.startedAt).toLocaleString("ja-JP", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" })
+            : null;
+          return (
+            <div key={uid} style={styles.adminCard}>
+              <div style={styles.adminRow}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* ステータスバッジ */}
+                  <div style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+                    {isComplete && <span style={visitorStyles.badgeComplete}>🎉 完了</span>}
+                    {v.claimed  && <span style={visitorStyles.badgeClaimed}>🎁 受取済</span>}
+                    {!isComplete && <span style={visitorStyles.badgeProgress}>{v.stamps?.length || 0}/{booths.length} 箇所</span>}
+                  </div>
+                  {/* スタンプ絵文字 */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: 6 }}>
+                    {booths.map(b => {
+                      const got = (v.stamps || []).includes(b.id);
+                      return (
+                        <span key={b.id} style={{ fontSize: 16, opacity: got ? 1 : 0.15 }}>
+                          {b.icon}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  {/* 時刻情報 */}
+                  <div style={visitorStyles.timeRow}>
+                    {startedAt   && <span>🕐 開始 {startedAt}</span>}
+                    {completedAt && <span>✅ 完了 {completedAt}</span>}
+                  </div>
+                  {/* UID */}
+                  <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, marginTop: 4 }}>{uid}</div>
+                </div>
+                {/* 個別削除ボタン */}
+                <button
+                  style={visitorStyles.btnDeleteOne}
+                  onClick={() => { if (window.confirm("この来場者データを削除しますか？")) deleteOne(uid); }}
+                >🗑</button>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+const visitorStyles = {
+  btnDeleteAll: {
+    width: "100%",
+    padding: "10px",
+    background: "rgba(248,113,113,0.12)",
+    border: "1px solid rgba(248,113,113,0.35)",
+    borderRadius: 12,
+    color: "#f87171",
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  confirmAllBox: {
+    background: "rgba(248,113,113,0.1)",
+    border: "1px solid rgba(248,113,113,0.4)",
+    borderRadius: 12,
+    padding: "14px",
+  },
+  confirmAllText: {
+    color: "#fca5a5",
+    fontSize: 13,
+    lineHeight: 1.6,
+    marginBottom: 12,
+  },
+  btnDeleteConfirm: {
+    flex: 1,
+    padding: "10px",
+    background: "linear-gradient(135deg,#ef4444,#dc2626)",
+    border: "none",
+    borderRadius: 10,
+    color: "#fff",
+    fontWeight: 700,
+    fontSize: 13,
+    cursor: "pointer",
+  },
+  btnDeleteCancel: {
+    flex: 1,
+    padding: "10px",
+    background: "rgba(255,255,255,0.08)",
+    border: "none",
+    borderRadius: 10,
+    color: "#fff",
+    fontSize: 13,
+    cursor: "pointer",
+  },
+  btnDeleteOne: {
+    background: "rgba(248,113,113,0.15)",
+    border: "1px solid rgba(248,113,113,0.3)",
+    borderRadius: 8,
+    color: "#f87171",
+    fontSize: 16,
+    width: 36,
+    height: 36,
+    cursor: "pointer",
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeComplete: {
+    background: "rgba(74,222,128,0.2)",
+    border: "1px solid rgba(74,222,128,0.4)",
+    color: "#4ade80",
+    borderRadius: 6,
+    padding: "2px 8px",
+    fontSize: 11,
+    fontWeight: 700,
+  },
+  badgeClaimed: {
+    background: "rgba(251,191,36,0.2)",
+    border: "1px solid rgba(251,191,36,0.4)",
+    color: "#fbbf24",
+    borderRadius: 6,
+    padding: "2px 8px",
+    fontSize: 11,
+    fontWeight: 700,
+  },
+  badgeProgress: {
+    background: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.15)",
+    color: "rgba(255,255,255,0.5)",
+    borderRadius: 6,
+    padding: "2px 8px",
+    fontSize: 11,
+    fontWeight: 600,
+  },
+  timeRow: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+    color: "rgba(255,255,255,0.35)",
+    fontSize: 11,
+  },
+};
 
 function AddPrizeForm({ prizes, setPrizes }) {
   const [form, setForm] = useState({ name: "", icon: "🎁", stock: 10 });
