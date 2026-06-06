@@ -1433,9 +1433,9 @@ function AdminPage({ booths, setBooths, prizes, setPrizes, onBack, onStaff }) {
 // ── 設定タブ ──
 function SettingsTab() {
   const [done, setDone] = React.useState(false);
+  const [step, setStep] = React.useState(0);
 
   const resetMyData = () => {
-    // このブラウザの来場者データのみ削除
     localStorage.removeItem(STORAGE_KEYS.USER_STAMPS);
     localStorage.removeItem(STORAGE_KEYS.USER_PRIZE);
     localStorage.removeItem(STORAGE_KEYS.USER_CLAIMED);
@@ -1447,123 +1447,57 @@ function SettingsTab() {
   return (
     <div style={styles.tabContent}>
       <h3 style={styles.sectionTitle}>テスト・デバッグ</h3>
-
-      {/* 自分のスタンプをリセット */}
       <div style={styles.adminCard}>
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
-            🔄　自分のスタンプをリセット
-          </div>
-          <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, lineHeight: 1.6 }}>
-            このスマホのスタンプ・景品・受取記録をすべて削除します。{"
-"}
-            動作テストや再試行のときに使用してください。
-          </div>
+        <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 6 }}>
+          🔄 自分のスタンプをリセット
+        </div>
+        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, lineHeight: 1.6, marginBottom: 12 }}>
+          このスマホのスタンプ・景品・受取記録をすべて削除します。動作テストや再試行のときに使用してください。
         </div>
         {done ? (
-          <div style={settingStyles.doneMsg}>✅ リセット完了。再読み込み中...</div>
+          <div style={{ textAlign: "center", color: "#4ade80", fontWeight: 700, fontSize: 14, padding: "12px",
+            background: "rgba(74,222,128,0.1)", borderRadius: 10, border: "1px solid rgba(74,222,128,0.3)" }}>
+            ✅ リセット完了。再読み込み中...
+          </div>
+        ) : step === 0 ? (
+          <button style={{ width: "100%", padding: "12px", background: "rgba(251,191,36,0.15)",
+            border: "1px solid rgba(251,191,36,0.4)", borderRadius: 12, color: "#fbbf24",
+            fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+            onClick={() => setStep(1)}>
+            リセットする
+          </button>
         ) : (
-          <ResetButton onConfirm={resetMyData} />
+          <div style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.3)",
+            borderRadius: 12, padding: "14px" }}>
+            <p style={{ color: "#fde68a", fontSize: 13, lineHeight: 1.6, marginBottom: 12, textAlign: "center" }}>
+              本当にリセットしますか？この操作は取り消せません。
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ flex: 1, padding: "10px", background: "linear-gradient(135deg,#f59e0b,#d97706)",
+                border: "none", borderRadius: 10, color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                onClick={resetMyData}>
+                はい、リセット
+              </button>
+              <button style={{ flex: 1, padding: "10px", background: "rgba(255,255,255,0.08)",
+                border: "none", borderRadius: 10, color: "#fff", fontSize: 13, cursor: "pointer" }}
+                onClick={() => setStep(0)}>
+                キャンセル
+              </button>
+            </div>
+          </div>
         )}
       </div>
-
-      <div style={settingStyles.noteBox}>
+      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 12, padding: "14px", marginTop: 12 }}>
         <div style={{ fontWeight: 700, marginBottom: 6, color: "rgba(255,255,255,0.6)" }}>💡 ご注意</div>
-        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, lineHeight: 1.7 }}>
-          • リセットするのは「このスマホのデータ」だけです{"
-"}
-          • 他の来場者のデータは消えません{"
-"}
-          • 管理者画面の来場者リストから自分のデータを個別削除する場合は「来場者」タブを使用してください
+        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, lineHeight: 1.9 }}>
+          <div>• リセットされるのはこのスマホのデータだけです</div>
+          <div>• 他の来場者のデータは消えません</div>
+          <div>• 管理者画面「来場者」タブから個別削除もできます</div>
         </div>
       </div>
     </div>
   );
-}
-
-function ResetButton({ onConfirm }) {
-  const [step, setStep] = React.useState(0);
-  if (step === 0) return (
-    <button style={settingStyles.btnReset} onClick={() => setStep(1)}>
-      リセットする
-    </button>
-  );
-  return (
-    <div style={settingStyles.confirmBox}>
-      <p style={settingStyles.confirmText}>本当にリセットしますか？<br/>
-        <span style={{ fontSize: 11, opacity: 0.6 }}>この操作は取り消せません</span>
-      </p>
-      <div style={{ display: "flex", gap: 8 }}>
-        <button style={settingStyles.btnConfirmYes} onClick={onConfirm}>はい、リセット</button>
-        <button style={settingStyles.btnConfirmNo} onClick={() => setStep(0)}>キャンセル</button>
-      </div>
-    </div>
-  );
-}
-
-const settingStyles = {
-  btnReset: {
-    width: "100%",
-    padding: "12px",
-    background: "rgba(251,191,36,0.15)",
-    border: "1px solid rgba(251,191,36,0.4)",
-    borderRadius: 12,
-    color: "#fbbf24",
-    fontSize: 14,
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-  confirmBox: {
-    background: "rgba(251,191,36,0.08)",
-    border: "1px solid rgba(251,191,36,0.3)",
-    borderRadius: 12,
-    padding: "14px",
-  },
-  confirmText: {
-    color: "#fde68a",
-    fontSize: 13,
-    lineHeight: 1.6,
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  btnConfirmYes: {
-    flex: 1,
-    padding: "10px",
-    background: "linear-gradient(135deg,#f59e0b,#d97706)",
-    border: "none",
-    borderRadius: 10,
-    color: "#000",
-    fontWeight: 700,
-    fontSize: 13,
-    cursor: "pointer",
-  },
-  btnConfirmNo: {
-    flex: 1,
-    padding: "10px",
-    background: "rgba(255,255,255,0.08)",
-    border: "none",
-    borderRadius: 10,
-    color: "#fff",
-    fontSize: 13,
-    cursor: "pointer",
-  },
-  doneMsg: {
-    textAlign: "center",
-    color: "#4ade80",
-    fontWeight: 700,
-    fontSize: 14,
-    padding: "12px",
-    background: "rgba(74,222,128,0.1)",
-    borderRadius: 10,
-    border: "1px solid rgba(74,222,128,0.3)",
-  },
-  noteBox: {
-    background: "rgba(255,255,255,0.03)",
-    border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: 12,
-    padding: "14px",
-    marginTop: 12,
-  },
 };
 
 // ── 来場者タブ（分離コンポーネント） ──
