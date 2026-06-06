@@ -71,6 +71,7 @@ const STORAGE_KEYS = {
   PRIZES: "sr_prizes",
   VISITORS: "sr_visitors",
   PRIZE_CLAIMS: "sr_prize_claims",
+  EVENT_NAME: "sr_event_name",
 };
 
 const storage = {
@@ -425,6 +426,7 @@ function StampRallyApp() {
   const [toast, setToast] = useState(null);
   const [adminMode, setAdminMode] = useState(false);
   const [newlyStamped, setNewlyStamped] = useState(null);
+  const [eventName, setEventName] = useState(() => storage.get(STORAGE_KEYS.EVENT_NAME, "学園祭2024"));
   const userId = useRef(getUserId()).current;
 
   // Persist
@@ -433,6 +435,7 @@ function StampRallyApp() {
   useEffect(() => { storage.set(STORAGE_KEYS.USER_STAMPS, stamps); }, [stamps]);
   useEffect(() => { storage.set(STORAGE_KEYS.USER_PRIZE, userPrize); }, [userPrize]);
   useEffect(() => { storage.set(STORAGE_KEYS.USER_CLAIMED, claimed); }, [claimed]);
+  useEffect(() => { storage.set(STORAGE_KEYS.EVENT_NAME, eventName); }, [eventName]);
 
   // Load jsQR
   useEffect(() => {
@@ -523,7 +526,7 @@ function StampRallyApp() {
           booths={booths} stamps={stamps} progress={progress} completed={completed}
           onScan={() => setPage("scan")} onList={() => setPage("list")}
           onComplete={() => setPage("complete")} onAdmin={() => setPage("admin")}
-          userPrize={userPrize} claimed={claimed} newlyStamped={newlyStamped}
+          userPrize={userPrize} claimed={claimed} newlyStamped={newlyStamped} eventName={eventName}
         />
       )}
       {page === "scan" && (
@@ -548,6 +551,7 @@ function StampRallyApp() {
           prizes={prizes} setPrizes={setPrizes}
           onBack={() => setPage("home")}
           onStaff={() => setPage("staff")}
+          eventName={eventName} setEventName={setEventName}
         />
       )}
       {page === "staff" && (
@@ -558,7 +562,7 @@ function StampRallyApp() {
 }
 
 // ==================== HOME PAGE ====================
-function HomePage({ booths, stamps, progress, completed, onScan, onList, onComplete, onAdmin, userPrize, claimed, newlyStamped }) {
+function HomePage({ booths, stamps, progress, completed, onScan, onList, onComplete, onAdmin, userPrize, claimed, newlyStamped, eventName }) {
   const pct  = Math.round(progress * 100);
   const got  = stamps.length;
   const total = booths.length;
@@ -569,7 +573,7 @@ function HomePage({ booths, stamps, progress, completed, onScan, onList, onCompl
       {/* ── ヘッダー（コンパクト） ── */}
       <div style={homeStyles.header}>
         <div style={homeStyles.headerLeft}>
-          <div style={styles.festivalBadge}>🎪 学園祭2024</div>
+          <div style={styles.festivalBadge}>🎪 {eventName}</div>
           <h1 style={homeStyles.title}>スタンプラリー</h1>
         </div>
         {/* ミニ進捗リング */}
@@ -1257,7 +1261,7 @@ function CompletePage({ userPrize, claimed, onGetPrize, onClaim, onBack }) {
 }
 
 // ==================== ADMIN PAGE ====================
-function AdminPage({ booths, setBooths, prizes, setPrizes, onBack, onStaff }) {
+function AdminPage({ booths, setBooths, prizes, setPrizes, onBack, onStaff, eventName, setEventName }) {
   const [authed, setAuthed] = useState(false);
   const [pw, setPw] = useState("");
   const [tab, setTab] = useState("booths");
@@ -1424,16 +1428,25 @@ function AdminPage({ booths, setBooths, prizes, setPrizes, onBack, onStaff }) {
 
       {/* ── SETTINGS TAB ── */}
       {tab === "settings" && (
-        <SettingsTab />
+        <SettingsTab eventName={eventName} setEventName={setEventName} />
       )}
     </div>
   );
 }
 
 // ── 設定タブ ──
-function SettingsTab() {
+function SettingsTab({ eventName, setEventName }) {
   const [done, setDone] = React.useState(false);
   const [step, setStep] = React.useState(0);
+  const [nameInput, setNameInput] = React.useState(eventName);
+  const [nameSaved, setNameSaved] = React.useState(false);
+
+  const saveEventName = () => {
+    if (!nameInput.trim()) return;
+    setEventName(nameInput.trim());
+    setNameSaved(true);
+    setTimeout(() => setNameSaved(false), 2000);
+  };
 
   const resetMyData = () => {
     localStorage.removeItem(STORAGE_KEYS.USER_STAMPS);
@@ -1446,7 +1459,45 @@ function SettingsTab() {
 
   return (
     <div style={styles.tabContent}>
-      <h3 style={styles.sectionTitle}>テスト・デバッグ</h3>
+      <h3 style={styles.sectionTitle}>イベント設定</h3>
+      <div style={styles.adminCard}>
+        <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 6 }}>
+          🎪 イベント名
+        </div>
+        <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, marginBottom: 10 }}>
+          ホーム画面のバッジに表示される名前を変更できます
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            value={nameInput}
+            onChange={e => setNameInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && saveEventName()}
+            style={{ ...styles.adminInput, flex: 1 }}
+            placeholder="例：文化祭2025"
+            maxLength={20}
+          />
+          <button
+            style={{ ...styles.btnSave, padding: "10px 14px", fontSize: 13, whiteSpace: "nowrap" }}
+            onClick={saveEventName}>
+            保存
+          </button>
+        </div>
+        {nameSaved && (
+          <div style={{ color: "#4ade80", fontSize: 12, marginTop: 8, textAlign: "center" }}>
+            ✅ 保存しました
+          </div>
+        )}
+        <div style={{ marginTop: 10, background: "rgba(255,255,255,0.04)", borderRadius: 8,
+          padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>プレビュー：</span>
+          <span style={{ background: "linear-gradient(135deg,#f093fb,#f5576c)", padding: "3px 12px",
+            borderRadius: 20, fontSize: 12, fontWeight: 700, color: "#fff" }}>
+            🎪 {nameInput || "（未入力）"}
+          </span>
+        </div>
+      </div>
+
+      <h3 style={{ ...styles.sectionTitle, marginTop: 16 }}>テスト・デバッグ</h3>
       <div style={styles.adminCard}>
         <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 6 }}>
           🔄 自分のスタンプをリセット
