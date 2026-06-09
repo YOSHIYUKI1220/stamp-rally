@@ -1384,6 +1384,7 @@ function StampRallyApp() {
   const [toast,        setToast]       = useState(null);
   const [newlyStamped, setNewlyStamped]= useState(null);
   const [loading,      setLoading]     = useState(true);
+  const [requiredStamps, setRequiredStampsState] = useState(10);
   const userId = useRef(getUserId()).current;
 
   useEffect(() => {
@@ -1411,16 +1412,19 @@ function StampRallyApp() {
     const r1 = db.ref("booths");
     const r2 = db.ref("prizes");
     const r3 = db.ref("eventName");
+    const r4 = db.ref("requiredStamps");
 
     r1.on("value", function(s) { clearTimeout(timer); finish(); var v=s.val(); if(v) setBooths(Array.isArray(v)?v:Object.values(v)); });
     r2.on("value", function(s) { var v=s.val(); if(v) setPrizes(Array.isArray(v)?v:Object.values(v)); });
     r3.on("value", function(s) { var v=s.val(); if(v) setEventName(v); });
+    r4.on("value", function(s) { var v=s.val(); if(v!=null) setRequiredStampsState(Number(v)); });
 
     return function() {
       clearTimeout(timer);
       r1.off("value");
       r2.off("value");
       r3.off("value");
+      r4.off("value");
     };
   }, []);
 
@@ -1444,14 +1448,14 @@ function StampRallyApp() {
       const now = Date.now();
       if (!lsGet("sr_startedAt")) lsSet("sr_startedAt", now);
       const data = { stamps:newStamps, startedAt:lsGet("sr_startedAt")||now };
-      if (newStamps.length === booths.length) data.completedAt = now;
+      if (newStamps.length >= reqStamps) data.completedAt = now;
       db.ref("visitors/"+userId).set(data);
     }
     showToast("「"+booth.name+"」のスタンプをゲット！","success");
     setNewlyStamped(boothId);
     setPage("home");
     setTimeout(() => setNewlyStamped(null), 1200);
-    if (newStamps.length === booths.length && !userPrize) {
+    if (newStamps.length >= reqStamps && !userPrize) {
       setTimeout(() => setPage("complete"), 1600);
     }
     return true;
@@ -1486,11 +1490,17 @@ function StampRallyApp() {
   };
 
   const updateBooths    = v => { setBooths(v);     if(window._db) window._db.ref("booths").set(v); };
+  const updateRequiredStamps = v => {
+    var n = Math.max(1, Math.min(Number(v), booths.length));
+    setRequiredStampsState(n);
+    if(window._db) window._db.ref("requiredStamps").set(n);
+  };
   const updatePrizes    = v => { setPrizes(v);     if(window._db) window._db.ref("prizes").set(v); };
   const updateEventName = v => { setEventName(v);  if(window._db) window._db.ref("eventName").set(v); };
 
-  const completed = stamps.length > 0 && stamps.length === booths.length;
-  const progress  = booths.length > 0 ? stamps.length / booths.length : 0;
+  const reqStamps = Math.max(1, Math.min(requiredStamps, booths.length));
+  const completed = stamps.length >= reqStamps;
+  const progress  = reqStamps > 0 ? Math.min(stamps.length / reqStamps, 1) : 0;
 
   if (loading) return (
     <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",
@@ -1514,7 +1524,7 @@ function StampRallyApp() {
         <HomePage booths={booths} stamps={stamps} progress={progress} completed={completed}
           onScan={()=>setPage("scan")} onComplete={()=>setPage("complete")}
           onAdmin={()=>setPage("admin")} userPrize={userPrize} claimed={claimed}
-          newlyStamped={newlyStamped} eventName={eventName} />
+          newlyStamped={newlyStamped} eventName={eventName} requiredStamps={reqStamps} />
       )}
       {page==="scan" && (
         <ScanPage booths={booths} stamps={stamps} onScan={handleStamp} onBack={()=>setPage("home")} />
@@ -1527,6 +1537,7 @@ function StampRallyApp() {
         <AdminPage booths={booths} setBooths={updateBooths}
           prizes={prizes} setPrizes={updatePrizes}
           eventName={eventName} setEventName={updateEventName}
+          requiredStamps={reqStamps} setRequiredStamps={updateRequiredStamps}
           onBack={()=>setPage("home")} onStaff={()=>setPage("staff")} />
       )}
       {page==="staff" && <StaffPage onBack={()=>setPage("admin")} />}
@@ -1534,7 +1545,7 @@ function StampRallyApp() {
   );
 }
 // ==================== HOME PAGE ====================
-function HomePage({ booths, stamps, progress, completed, onScan, onList, onComplete, onAdmin, userPrize, claimed, newlyStamped, eventName }) {
+function HomePage({ booths, stamps, progress, completed, onScan, onList, onComplete, onAdmin, userPrize, claimed, newlyStamped, eventName, requiredStamps }) {
   const pct  = Math.round(progress * 100);
   const got  = stamps.length;
   const total = booths.length;
@@ -1549,7 +1560,7 @@ function HomePage({ booths, stamps, progress, completed, onScan, onList, onCompl
           <h1 style={homeStyles.title}>スタンプラリー</h1>
         </div>
         {/* ミニ進捗リング */}
-        <MiniRing pct={pct} got={got} total={total} completed={completed} />
+        <MiniRing pct={pct} got={got} total={requiredStamps||total} completed={completed} />
       </div>
 
       {/* ── ステータスバー ── */}
@@ -1948,7 +1959,7 @@ function CompletePage({ userPrize, claimed, prizes, onGetPrize, onClaim, onBack 
 }
 
 // ==================== ADMIN PAGE ====================
-function AdminPage({ booths, setBooths, prizes, setPrizes, onBack, onStaff, eventName, setEventName }) {
+function AdminPage({ booths, setBooths, prizes, setPrizes, onBack, onStaff, eventName, setEventName, requiredStamps, setRequiredStamps }) {
   const [authed, setAuthed] = useState(false);
   const [pw, setPw] = useState("");
   const [tab, setTab] = useState("booths");
@@ -2114,7 +2125,7 @@ function AdminPage({ booths, setBooths, prizes, setPrizes, onBack, onStaff, even
 
       {/* ── VISITORS TAB ── */}
       {tab === "visitors" && <VisitorsTab booths={booths} />}
-      {tab === "settings" && <SettingsTab eventName={eventName} setEventName={setEventName} />}
+      {tab === "settings" && <SettingsTab eventName={eventName} setEventName={setEventName} requiredStamps={requiredStamps} setRequiredStamps={setRequiredStamps} boothCount={booths.length} />}
     </div>
   );
 }
@@ -2308,7 +2319,7 @@ function VisitorsTab({ booths }) {
 }
 
 // ── 設定タブ ──
-function SettingsTab({ eventName, setEventName }) {
+function SettingsTab({ eventName, setEventName, requiredStamps, setRequiredStamps, boothCount }) {
   const [done,      setDone]      = useState(false);
   const [step,      setStep]      = useState(0);
   const [nameInput, setNameInput] = useState(eventName);
@@ -2344,6 +2355,34 @@ function SettingsTab({ eventName, setEventName }) {
           <span style={{background:"linear-gradient(135deg,#f093fb,#f5576c)",padding:"3px 12px",borderRadius:20,fontSize:12,fontWeight:700,color:"#fff"}}>🎪 {nameInput||"（未入力）"}</span>
         </div>
       </div>
+      <h3 style={{...styles.sectionTitle,marginTop:16}}>スタンプ設定</h3>
+      <div style={styles.adminCard}>
+        <div style={{color:"#fff",fontWeight:700,fontSize:15,marginBottom:6}}>🎯 クリアに必要なスタンプ数</div>
+        <div style={{color:"rgba(255,255,255,0.45)",fontSize:12,marginBottom:12}}>
+          ブース数：{boothCount}個　／　現在の設定：{requiredStamps}個集めればクリア
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+          <button onClick={function(){setRequiredStamps(Math.max(1,requiredStamps-1));}}
+            style={{width:40,height:40,background:"rgba(255,255,255,0.1)",border:"none",
+              borderRadius:10,color:"#fff",fontSize:22,fontWeight:700,cursor:"pointer"}}>－</button>
+          <div style={{flex:1,textAlign:"center"}}>
+            <span style={{fontSize:36,fontWeight:900,color:"#fff"}}>{requiredStamps}</span>
+            <span style={{color:"rgba(255,255,255,0.4)",fontSize:14}}> / {boothCount}</span>
+          </div>
+          <button onClick={function(){setRequiredStamps(Math.min(boothCount,requiredStamps+1));}}
+            style={{width:40,height:40,background:"rgba(255,255,255,0.1)",border:"none",
+              borderRadius:10,color:"#fff",fontSize:22,fontWeight:700,cursor:"pointer"}}>＋</button>
+        </div>
+        <div style={{height:8,background:"rgba(255,255,255,0.08)",borderRadius:4,overflow:"hidden",marginBottom:8}}>
+          <div style={{height:"100%",background:"linear-gradient(90deg,#667eea,#764ba2)",
+            borderRadius:4,transition:"width 0.3s",
+            width:(boothCount>0?(requiredStamps/boothCount*100):0)+"%"}}/>
+        </div>
+        <div style={{color:"rgba(255,255,255,0.35)",fontSize:11,textAlign:"center"}}>
+          {requiredStamps===boothCount?"全ブース制覇が必要":""+requiredStamps+"個集めるとクリア（"+boothCount+"個中）"}
+        </div>
+      </div>
+
       <h3 style={{...styles.sectionTitle,marginTop:16}}>テスト・デバッグ</h3>
       <div style={styles.adminCard}>
         <div style={{color:"#fff",fontWeight:700,fontSize:15,marginBottom:6}}>🔄 自分のスタンプをリセット</div>
