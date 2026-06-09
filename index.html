@@ -1203,7 +1203,7 @@ function useQRScanner(onScan) {
 
   const start = useCallback(async () => {
     setError(null);
-    if (!navigator.(mediaDevices && mediaDevices.getUserMedia)) {
+    if (!navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       setError("notHttps"); return;
     }
     try {
@@ -2165,9 +2165,9 @@ function StaffPage({ onBack }) {
         ) : claims.map((c,i) => (
           <div key={i} style={styles.adminCard}>
             <div style={styles.adminRow}>
-              <span style={{fontSize:28}}>{c.(prize && prize.icon)}</span>
+              <span style={{fontSize:28}}>{c.prize.icon}</span>
               <div style={{flex:1}}>
-                <div style={{color:"#fff",fontWeight:600}}>{c.(prize && prize.name)}</div>
+                <div style={{color:"#fff",fontWeight:600}}>{c.prize.name}</div>
                 <div style={{color:"rgba(255,255,255,0.4)",fontSize:12}}>
                   {new Date(c.claimedAt).toLocaleString("ja-JP")}
                 </div>
@@ -2200,7 +2200,7 @@ function VisitorsTab({ booths }) {
     if(window._db){ window._db.ref("visitors").remove(); window._db.ref("claims").remove(); }
     setConfirmAll(false);
   };
-  const completedList = list.filter(([,v])=>v.(stamps && stamps.length)===booths.length);
+  const completedList = list.filter(([,v])=>v.stamps.length===booths.length);
   const fmt = ts => ts ? new Date(ts).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) : null;
   return (
     <div style={styles.tabContent}>
@@ -2233,7 +2233,7 @@ function VisitorsTab({ booths }) {
       {list.length===0 ? (
         <p style={{color:"rgba(255,255,255,0.3)",textAlign:"center",marginTop:40}}>来場者データなし</p>
       ) : list.map(([uid,v]) => {
-        const isComplete = v.(stamps && stamps.length)===booths.length;
+        const isComplete = v.stamps.length===booths.length;
         return (
           <div key={uid} style={styles.adminCard}>
             <div style={styles.adminRow}>
@@ -2241,7 +2241,7 @@ function VisitorsTab({ booths }) {
                 <div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>
                   {isComplete && <span style={{background:"rgba(74,222,128,0.2)",border:"1px solid rgba(74,222,128,0.4)",color:"#4ade80",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>🎉 完了</span>}
                   {v.claimed  && <span style={{background:"rgba(251,191,36,0.2)",border:"1px solid rgba(251,191,36,0.4)",color:"#fbbf24",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>🎁 受取済</span>}
-                  {!isComplete && <span style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.5)",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:600}}>{v.(stamps && stamps.length)||0}/{booths.length} 箇所</span>}
+                  {!isComplete && <span style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.5)",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:600}}>{v.stamps.length||0}/{booths.length} 箇所</span>}
                 </div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:3,marginBottom:6}}>
                   {booths.map(b=><span key={b.id} style={{fontSize:16,opacity:(v.stamps||[]).includes(b.id)?1:0.15}}>{b.icon}</span>)}
