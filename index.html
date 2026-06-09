@@ -29,13 +29,13 @@
     try {
       const _p1="AIzaSyDl", _p2="N3hEQXcY1Uo-JVpybOycmFF3C6--N-Y";
       const _app = firebase.initializeApp({
-  apiKey: "AIzaSyC9atR065yz_0NPSd1WjLhA5Eel1iOzI9o",
-  authDomain: "stamp-rally-e0930.firebaseapp.com",
-  projectId: "stamp-rally-e0930",
-  storageBucket: "stamp-rally-e0930.firebasestorage.app",
-  messagingSenderId: "1019780360880",
-  appId: "1:1019780360880:web:2f0d9bdf2c0c3d7a6e6975",
-  measurementId: "G-WWZBXQS3YT"
+        apiKey:            _p1+_p2,
+        authDomain:        "stamp-rally2026.firebaseapp.com",
+        databaseURL:       "https://stamp-rally-e0930-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId:         "stamp-rally2026",
+        storageBucket:     "stamp-rally2026.firebasestorage.app",
+        messagingSenderId: "362208550256",
+        appId:             "1:362208550256:web:d2cc3fbeb4204807c3c3b5"
       });
       window._db = firebase.database(_app);
     } catch(e) {
@@ -1388,18 +1388,58 @@ function StampRallyApp() {
 
   useEffect(() => {
     const db = window._db;
-    if (!db) { setLoading(false); return; }
-    db.ref("booths").once("value").then(s => { if (!s.val()) db.ref("booths").set(DEFAULT_BOOTHS); });
-    db.ref("prizes").once("value").then(s => { if (!s.val()) db.ref("prizes").set(DEFAULT_PRIZES); });
-    db.ref("eventName").once("value").then(s => { if (!s.val()) db.ref("eventName").set("学園祭2024"); });
-    const r1 = db.ref("booths");
-    const r2 = db.ref("prizes");
-    const r3 = db.ref("eventName");
-    r1.on("value", s => { const v=s.val(); if(v) setBooths(Array.isArray(v)?v:Object.values(v)); });
-    r2.on("value", s => { const v=s.val(); if(v) setPrizes(Array.isArray(v)?v:Object.values(v)); });
-    r3.on("value", s => { const v=s.val(); if(v) setEventName(v); });
-    setTimeout(() => setLoading(false), 1000);
-    return () => { r1.off(); r2.off(); r3.off(); };
+    // Firebase未接続の場合はそのまま起動
+    if (!db) {
+      setLoading(false);
+      return;
+    }
+
+    let loaded = false;
+    const finish = () => { if (!loaded) { loaded = true; setLoading(false); } };
+
+    // 8秒でタイムアウト（Firebaseに繋がらなくても起動する）
+    const timer = setTimeout(() => {
+      console.warn("Firebase接続タイムアウト。オフラインモードで起動します。");
+      finish();
+    }, 8000);
+
+    // Firebase接続状態を監視
+    const connRef = db.ref(".info/connected");
+    connRef.on("value", snap => {
+      if (snap.val() === true) {
+        clearTimeout(timer);
+        // 初期データ設定
+        db.ref("booths").once("value").then(s => {
+          if (!s.val()) db.ref("booths").set(DEFAULT_BOOTHS);
+        }).catch(e => console.error("booths初期化エラー:", e));
+        db.ref("prizes").once("value").then(s => {
+          if (!s.val()) db.ref("prizes").set(DEFAULT_PRIZES);
+        }).catch(e => console.error("prizes初期化エラー:", e));
+        db.ref("eventName").once("value").then(s => {
+          if (!s.val()) db.ref("eventName").set("学園祭2024");
+        }).catch(e => console.error("eventName初期化エラー:", e));
+
+        const r1 = db.ref("booths");
+        const r2 = db.ref("prizes");
+        const r3 = db.ref("eventName");
+        r1.on("value", s => { const v=s.val(); if(v) setBooths(Array.isArray(v)?v:Object.values(v)); });
+        r2.on("value", s => { const v=s.val(); if(v) setPrizes(Array.isArray(v)?v:Object.values(v)); });
+        r3.on("value", s => { const v=s.val(); if(v) setEventName(v); });
+
+        finish();
+      }
+    });
+
+    connRef.on("cancel", err => {
+      clearTimeout(timer);
+      console.error("Firebase接続キャンセル:", err);
+      finish();
+    });
+
+    return () => {
+      clearTimeout(timer);
+      connRef.off();
+    };
   }, []);
 
   useEffect(() => { lsSet("sr_stamps",  stamps);   }, [stamps]);
@@ -1512,7 +1552,7 @@ function StampRallyApp() {
   );
 }
 // ==================== HOME PAGE ====================
-function HomePage({ booths, stamps, progress, completed, onScan, onList, onComplete, onAdmin, userPrize, claimed, newlyStamped }) {
+function HomePage({ booths, stamps, progress, completed, onScan, onList, onComplete, onAdmin, userPrize, claimed, newlyStamped, eventName }) {
   const pct  = Math.round(progress * 100);
   const got  = stamps.length;
   const total = booths.length;
