@@ -1152,16 +1152,7 @@ const styles = {
 };
 
 // ==================== GLOBAL STYLES ====================
-// ==================== STORAGE UTILS ====================
-// 個人データ用 localStorage ヘルパー
-const lsGet = (k, fb=null) => { try { return JSON.parse(localStorage.getItem(k))||fb; } catch { return fb; } };
-const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
-function getUserId() {
-  let id = localStorage.getItem("sr_uid");
-  if (!id) { id="u_"+Date.now()+"_"+Math.random().toString(36).slice(2,8); localStorage.setItem("sr_uid",id); }
-  return id;
-}
 
 // ==================== QR SCANNER (jsQR via CDN) ====================
 function detectCameraErrorType(e) {
