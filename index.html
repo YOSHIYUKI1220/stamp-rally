@@ -20,7 +20,7 @@
   <div id="root"></div>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -45,7 +45,7 @@
   </script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback } = React;
-    const lsGet = (k,fb=null) => { try{return JSON.parse(localStorage.getItem(k))??fb;}catch{return fb;} };
+    const lsGet = (k,fb=null) => { try{return JSON.parse(localStorage.getItem(k))||fb;}catch{return fb;} };
     const lsSet = (k,v) => { try{localStorage.setItem(k,JSON.stringify(v));}catch{} };
     function getUserId() {
       let id=localStorage.getItem("sr_uid");
@@ -1154,7 +1154,7 @@ const styles = {
 // ==================== GLOBAL STYLES ====================
 // ==================== STORAGE UTILS ====================
 // 個人データ用 localStorage ヘルパー
-const lsGet = (k, fb=null) => { try { return JSON.parse(localStorage.getItem(k))??fb; } catch { return fb; } };
+const lsGet = (k, fb=null) => { try { return JSON.parse(localStorage.getItem(k))||fb; } catch { return fb; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
 function getUserId() {
@@ -1165,8 +1165,8 @@ function getUserId() {
 
 // ==================== QR SCANNER (jsQR via CDN) ====================
 function detectCameraErrorType(e) {
-  const name = e?.name || "";
-  const msg  = (e?.message || "").toLowerCase();
+  const name = (e && e.name) || "";
+  const msg  = ((e && e.message) || "").toLowerCase();
   if (name === "NotAllowedError"  || msg.includes("permission") || msg.includes("denied"))
     return "denied";
   if (name === "NotFoundError"    || msg.includes("not found") || msg.includes("no device"))
@@ -1212,7 +1212,7 @@ function useQRScanner(onScan) {
 
   const start = useCallback(async () => {
     setError(null);
-    if (!navigator.mediaDevices?.getUserMedia) {
+    if (!navigator.(mediaDevices && mediaDevices.getUserMedia)) {
       setError("notHttps"); return;
     }
     try {
@@ -1882,8 +1882,8 @@ function CompletePage({ userPrize, claimed, onGetPrize, onClaim, onBack }) {
           </button>
         ) : claimed ? (
           <div style={styles.claimedBox}>
-            <div style={{ fontSize: 50 }}>{userPrize?.icon}</div>
-            <div style={styles.prizeName}>{userPrize?.name}</div>
+            <div style={{ fontSize: 50 }}>{(userPrize && userPrize.icon)}</div>
+            <div style={styles.prizeName}>{(userPrize && userPrize.name)}</div>
             <div style={styles.claimedLabel}>受け取り済み ✓</div>
             <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginTop: 16 }}>
               ご参加ありがとうございました！
@@ -1892,8 +1892,8 @@ function CompletePage({ userPrize, claimed, onGetPrize, onClaim, onBack }) {
           </div>
         ) : (
           <div style={styles.prizeBox}>
-            <div style={{ fontSize: 56 }}>{userPrize?.icon}</div>
-            <div style={styles.prizeName}>{userPrize?.name}</div>
+            <div style={{ fontSize: 56 }}>{(userPrize && userPrize.icon)}</div>
+            <div style={styles.prizeName}>{(userPrize && userPrize.name)}</div>
             <p style={styles.prizeNote}>スタッフに画面を見せて景品を受け取ってください</p>
 
             {!confirming ? (
@@ -1984,7 +1984,7 @@ function AdminPage({ booths, setBooths, prizes, setPrizes, onBack, onStaff, even
           </div>
           {booths.map((b, i) => (
             <div key={b.id} style={styles.adminCard}>
-              {editBooth?.id === b.id ? (
+              {(editBooth && editBooth.id) === b.id ? (
                 <div style={styles.editForm}>
                   <input value={editBooth.name} onChange={e => setEditBooth({ ...editBooth, name: e.target.value })} style={styles.adminInput} placeholder="ブース名" />
                   <input value={editBooth.description} onChange={e => setEditBooth({ ...editBooth, description: e.target.value })} style={styles.adminInput} placeholder="説明" />
@@ -2040,7 +2040,7 @@ function AdminPage({ booths, setBooths, prizes, setPrizes, onBack, onStaff, even
           <h3 style={styles.sectionTitle}>景品管理</h3>
           {prizes.map(p => (
             <div key={p.id} style={styles.adminCard}>
-              {editPrize?.id === p.id ? (
+              {(editPrize && editPrize.id) === p.id ? (
                 <div style={styles.editForm}>
                   <input value={editPrize.name} onChange={e => setEditPrize({ ...editPrize, name: e.target.value })} style={styles.adminInput} placeholder="景品名" />
                   <input value={editPrize.icon} onChange={e => setEditPrize({ ...editPrize, icon: e.target.value })} style={{ ...styles.adminInput, width: 70 }} placeholder="絵文字" />
@@ -2174,9 +2174,9 @@ function StaffPage({ onBack }) {
         ) : claims.map((c,i) => (
           <div key={i} style={styles.adminCard}>
             <div style={styles.adminRow}>
-              <span style={{fontSize:28}}>{c.prize?.icon}</span>
+              <span style={{fontSize:28}}>{c.(prize && prize.icon)}</span>
               <div style={{flex:1}}>
-                <div style={{color:"#fff",fontWeight:600}}>{c.prize?.name}</div>
+                <div style={{color:"#fff",fontWeight:600}}>{c.(prize && prize.name)}</div>
                 <div style={{color:"rgba(255,255,255,0.4)",fontSize:12}}>
                   {new Date(c.claimedAt).toLocaleString("ja-JP")}
                 </div>
@@ -2209,7 +2209,7 @@ function VisitorsTab({ booths }) {
     if(window._db){ window._db.ref("visitors").remove(); window._db.ref("claims").remove(); }
     setConfirmAll(false);
   };
-  const completedList = list.filter(([,v])=>v.stamps?.length===booths.length);
+  const completedList = list.filter(([,v])=>v.(stamps && stamps.length)===booths.length);
   const fmt = ts => ts ? new Date(ts).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) : null;
   return (
     <div style={styles.tabContent}>
@@ -2242,7 +2242,7 @@ function VisitorsTab({ booths }) {
       {list.length===0 ? (
         <p style={{color:"rgba(255,255,255,0.3)",textAlign:"center",marginTop:40}}>来場者データなし</p>
       ) : list.map(([uid,v]) => {
-        const isComplete = v.stamps?.length===booths.length;
+        const isComplete = v.(stamps && stamps.length)===booths.length;
         return (
           <div key={uid} style={styles.adminCard}>
             <div style={styles.adminRow}>
@@ -2250,7 +2250,7 @@ function VisitorsTab({ booths }) {
                 <div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>
                   {isComplete && <span style={{background:"rgba(74,222,128,0.2)",border:"1px solid rgba(74,222,128,0.4)",color:"#4ade80",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>🎉 完了</span>}
                   {v.claimed  && <span style={{background:"rgba(251,191,36,0.2)",border:"1px solid rgba(251,191,36,0.4)",color:"#fbbf24",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>🎁 受取済</span>}
-                  {!isComplete && <span style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.5)",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:600}}>{v.stamps?.length||0}/{booths.length} 箇所</span>}
+                  {!isComplete && <span style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.5)",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:600}}>{v.(stamps && stamps.length)||0}/{booths.length} 箇所</span>}
                 </div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:3,marginBottom:6}}>
                   {booths.map(b=><span key={b.id} style={{fontSize:16,opacity:(v.stamps||[]).includes(b.id)?1:0.15}}>{b.icon}</span>)}
