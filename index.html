@@ -1388,57 +1388,39 @@ function StampRallyApp() {
 
   useEffect(() => {
     const db = window._db;
-    // Firebase未接続の場合はそのまま起動
-    if (!db) {
-      setLoading(false);
-      return;
-    }
+    if (!db) { setLoading(false); return; }
 
     let loaded = false;
     const finish = () => { if (!loaded) { loaded = true; setLoading(false); } };
 
-    // 8秒でタイムアウト（Firebaseに繋がらなくても起動する）
-    const timer = setTimeout(() => {
-      console.warn("Firebase接続タイムアウト。オフラインモードで起動します。");
-      finish();
-    }, 8000);
+    // 8秒でタイムアウト
+    const timer = setTimeout(() => { finish(); }, 8000);
 
-    // Firebase接続状態を監視
-    const connRef = db.ref(".info/connected");
-    connRef.on("value", snap => {
-      if (snap.val() === true) {
-        clearTimeout(timer);
-        // 初期データ設定
-        db.ref("booths").once("value").then(s => {
-          if (!s.val()) db.ref("booths").set(DEFAULT_BOOTHS);
-        }).catch(e => console.error("booths初期化エラー:", e));
-        db.ref("prizes").once("value").then(s => {
-          if (!s.val()) db.ref("prizes").set(DEFAULT_PRIZES);
-        }).catch(e => console.error("prizes初期化エラー:", e));
-        db.ref("eventName").once("value").then(s => {
-          if (!s.val()) db.ref("eventName").set("学園祭2024");
-        }).catch(e => console.error("eventName初期化エラー:", e));
+    // 初期データ設定（onceで取得してなければセット）
+    db.ref("booths").once("value").then(s => {
+      if (!s.val()) db.ref("booths").set(DEFAULT_BOOTHS);
+    }).catch(() => {});
+    db.ref("prizes").once("value").then(s => {
+      if (!s.val()) db.ref("prizes").set(DEFAULT_PRIZES);
+    }).catch(() => {});
+    db.ref("eventName").once("value").then(s => {
+      if (!s.val()) db.ref("eventName").set("学園祭2024");
+    }).catch(() => {});
 
-        const r1 = db.ref("booths");
-        const r2 = db.ref("prizes");
-        const r3 = db.ref("eventName");
-        r1.on("value", s => { const v=s.val(); if(v) setBooths(Array.isArray(v)?v:Object.values(v)); });
-        r2.on("value", s => { const v=s.val(); if(v) setPrizes(Array.isArray(v)?v:Object.values(v)); });
-        r3.on("value", s => { const v=s.val(); if(v) setEventName(v); });
+    // リアルタイム購読（スコープ外でrefを保持）
+    const r1 = db.ref("booths");
+    const r2 = db.ref("prizes");
+    const r3 = db.ref("eventName");
 
-        finish();
-      }
-    });
+    r1.on("value", function(s) { clearTimeout(timer); finish(); var v=s.val(); if(v) setBooths(Array.isArray(v)?v:Object.values(v)); });
+    r2.on("value", function(s) { var v=s.val(); if(v) setPrizes(Array.isArray(v)?v:Object.values(v)); });
+    r3.on("value", function(s) { var v=s.val(); if(v) setEventName(v); });
 
-    connRef.on("cancel", err => {
+    return function() {
       clearTimeout(timer);
-      console.error("Firebase接続キャンセル:", err);
-      finish();
-    });
-
-    return () => {
-      clearTimeout(timer);
-      connRef.off();
+      r1.off("value");
+      r2.off("value");
+      r3.off("value");
     };
   }, []);
 
@@ -2189,7 +2171,7 @@ function StaffPage({ onBack }) {
       const val = s.val();
       setClaims(val ? Object.values(val).sort((a,b)=>b.claimedAt-a.claimedAt) : []);
     });
-    return () => r.off();
+    return function() { r.off("value"); };
   }, []);
   return (
     <div style={styles.page}>
@@ -2233,7 +2215,7 @@ function VisitorsTab({ booths }) {
     const r2 = db.ref("claims");
     r1.on("value", s => setList(s.val()?Object.entries(s.val()):[]) );
     r2.on("value", s => setClaims(s.val()?Object.values(s.val()):[]) );
-    return () => { r1.off(); r2.off(); };
+    return function() { r1.off("value"); r2.off("value"); };
   }, []);
   const deleteOne = uid => { if(window._db) window._db.ref("visitors/"+uid).remove(); };
   const deleteAll = () => {
